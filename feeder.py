@@ -21,7 +21,7 @@ class FeedlyApiClient:
     UNREAD_COUNTS_URL = MAIN_URL + '/v3/markers/counts'
     STREAM_CONTENTS_URL = MAIN_URL + '/v3/streams/contents?streamId='
 
-    PERSONAL_ALL_UNREAD_FEED_ID = 'user/ede62ec0-5773-49b1-bfe7-c2843e0f4dec/category/global.all'
+    PERSONAL_ALL_UNREAD_FEED_ID = STREAM_CONTENTS_URL + 'user/ede62ec0-5773-49b1-bfe7-c2843e0f4dec/category/global.all'
     PERSONAL_ALL_UNREAD_STREAM = STREAM_CONTENTS_URL + 'user/ede62ec0-5773-49b1-bfe7-c2843e0f4dec/category/global.all&unreadOnly=true'
 
     def __init__(self, client_id, api_key):
@@ -45,9 +45,24 @@ class FeedlyApiClient:
     def get_unread_feed_url(self, feed_id):
         return STREAM_CONTENTS_URL % feed_id + '?unreadOnly=true'
 
-    def get_all_unread_articles(self):
-        response_content = self.get_url_response_content(self.PERSONAL_ALL_UNREAD_STREAM)
-        return response_content['items']
+    def get_all_unread_articles(self, url, article_agg=[]):
+        response_content = self.get_url_response_content(url)
+        continuation = response_content.get('continuation', None)
+
+        if len(response_items) == 20:
+            continuation_url = url + 'continuation=' + continuation
+            response_content = self.get_url_response_content(continuation_url)
+
+            article
+
+            return
+
+        if continuation is not None:
+            continuation_url = url + 'continuation=' + continuation
+            article_agg.append(response_content['items'])
+            self.get_all_unread_articles(continuation_url, article_agg)
+        else:
+            return article_agg
 
     def get_all_unread_article_urls(self):
         unread_articles = self.get_all_unread_articles()
@@ -115,6 +130,8 @@ class NYTParser:
 feedly_client = FeedlyApiClient(CLIENT_ID, ACCESS_TOKEN)
 
 unread_urls = feedly_client.get_all_unread_article_urls()
+unread_count = len(unread_urls)
+print(f'Unread Count: {unread_count} articles')
 
 
 NYT_URL_REGEX = '^https://www.nytimes.com'
