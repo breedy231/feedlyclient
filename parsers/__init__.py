@@ -1,1 +1,0 @@
-from .nyt import NYTParser
