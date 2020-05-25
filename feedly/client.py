@@ -58,12 +58,6 @@ class FeedlyApiClient:
     def set_unread_count(self, unread_count):
         self.unread_article_count = unread_count
 
-    def get_estimated_reading_time(self, full_text):
-        WPM = 200
-        num_words_in_text = len(full_text.split())
-        estimated_reading_time = round(num_words_in_text/WPM)
-        return estimated_reading_time
-
     def get_all_unread_article_urls(self):
         unread_articles = self.get_all_unread_articles()
         self.set_unread_count(len(unread_articles))
@@ -92,10 +86,7 @@ class FeedlyApiClient:
     def create_article_obj(self, url, feed_id, feed_content=None):
         if feed_content is not None:
             parsed_text = self.parse_feed_text(feed_content)
-            rough_article_length = len(parsed_text)
-            article_id = feed_content.get('id')
-            estimated_reading_time = self.get_estimated_reading_time(parsed_text)
-            article_obj = Article(url, feed_id, article_text=parsed_text, reading_time=estimated_reading_time)
+            article_obj = Article(url, feed_id, article_text=parsed_text)
         else:
             article_obj = Article(url, feed_id)
         return article_obj
