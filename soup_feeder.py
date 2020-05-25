@@ -2,16 +2,18 @@ from bs4 import BeautifulSoup
 from collections import defaultdict
 import httpx
 import json
+from pprint import pprint
 import re
 
-from pprint import pprint
 
-from parsers import NYTParser
-from feedly import FeedlyApiClient
+from firss.parsers import NYTParser
+from firss.feedly import FeedlyApiClient
 
 
 CLIENT_ID = 'ede62ec0-5773-49b1-bfe7-c2843e0f4dec'
 ACCESS_TOKEN = 'Azps7uUKhDZwbAVqhVZI27kviVz0bb7709m0GJF6OsA0DWppd-zzgCnUYdUUrCzFq04Jg2Fwbyes46lO2zeh8Tcl6FvwsjFFK-FouBLLkTBC53JIyCGf80rB9hboa9o6K-r-g3W19rvmgof3Qg_A648kvzRZDlkIUouy4b8Z4pfzSFwjXdQibg9gf6hUmFqj7NWteuPB4bBli4pBFXSPwRtxKpKWO2PLqNKDqaYN-FIyb0OnMNArDTK4CKfT:feedlydev'
+
+POCKET_ACCESS_TOKEN = '6dd3ddfa-da0f-3106-c0cb-b0097c'
 
 headers = {
     'Authorization': 'OAuth %s' % (ACCESS_TOKEN)
