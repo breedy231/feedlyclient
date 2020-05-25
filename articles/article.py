@@ -5,7 +5,7 @@ class Article:
         self.feedly_id = feedly_id
         self.reading_time = reading_time
         self.unread = unread
-        self.article_Text = article_text
+        self.article_text = article_text
         self.sent_to_pocket = False
 
     def mark_as_read(self):
