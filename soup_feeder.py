@@ -5,9 +5,8 @@ import json
 from pprint import pprint
 import re
 
-
-from firss.parsers import NYTParser
-from firss.feedly import FeedlyApiClient
+from parsers import NYTParser
+from feedly import FeedlyApiClient
 
 
 CLIENT_ID = 'ede62ec0-5773-49b1-bfe7-c2843e0f4dec'
