@@ -42,14 +42,14 @@ class FeedlyApiClient:
         num_items = len(response_items)
 
         if num_items == self.SINGLE_REQUEST_ITEM_SIZE:
-            continuation_url = self._make_continuation_url(url)
+            continuation_url = self._make_continuation_url(continuation, url)
             new_agg = article_agg + response_items
             return self.get_all_unread_articles(url=continuation_url, article_agg=new_agg)
         else:
             result_agg = article_agg + response_content['items']
             return result_agg
 
-    def _make_continuation_url(self, url=None):
+    def _make_continuation_url(self, continuation, url=None):
         continuation_url = (
             url + '&continuation=' + continuation if url is not None else self.PERSONAL_ALL_UNREAD_STREAM + '&continuation=' + continuation
         )
