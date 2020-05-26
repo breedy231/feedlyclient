@@ -4,7 +4,7 @@
 
 a thing to help me manage my RSS feeds better
 
-## Using:
+## Using
 
 * `pylint` as a linter
 * `httpx` for requests

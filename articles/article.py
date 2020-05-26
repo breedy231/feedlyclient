@@ -4,12 +4,19 @@ class Article:
         self.url = url
         self.feedly_id = feedly_id
         self.article_text = article_text
-        self.reading_time = self.get_estimated_reading_time()
+        self.reading_time = self.get_estimated_reading_time() if article_text is not None else 0
         self.unread = unread
         self.sent_to_pocket = False
+        self.tags = []
 
     def mark_as_read(self):
         self.unread = False
+
+    def add_tag(self, tag):
+        self.tags = self.tags.append(tag)
+
+    def add_tags(self, tags):
+        self.tags = self.tags + tags
 
     def get_estimated_reading_time(self):
         WPM = 200
