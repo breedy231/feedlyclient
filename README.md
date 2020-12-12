@@ -11,6 +11,6 @@ a thing to help me manage my RSS feeds better
 * `BeautifulSoup` for HTML parsing
 
 ## External Docs
-* [Feedly API Documentation]('https://developers.feedly.com/')
-* [BeautifulSoup Documentation]('https://www.crummy.com/software/BeautifulSoup/bs4/doc/index.html')
+* [Feedly API Documentation](https://developers.feedly.com/)
+* [BeautifulSoup Documentation](https://www.crummy.com/software/BeautifulSoup/bs4/doc/index.html)
 
