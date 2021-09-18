@@ -51,7 +51,7 @@ class FeedlyApiClient:
             return self.get_all_unread_articles(url=continuation_url, article_agg=new_agg)
         else:
             result_agg = article_agg + response_content['items']
-            print(f'Finished getting unread articles; Total length:{len(article_agg)}')
+            print(f'Finished getting unread articles; Total length:{len(result_agg)}')
             return result_agg
 
     def _make_continuation_url(self, continuation, url=None):
