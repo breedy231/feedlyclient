@@ -1,3 +1,5 @@
 httpx
 bs4
 beautifulsoup4
+feedparser
+tqdm
