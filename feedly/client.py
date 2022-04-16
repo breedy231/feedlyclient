@@ -1,9 +1,16 @@
+from sys import api_version
 import httpx
 import json
 import tqdm
 from bs4 import BeautifulSoup
 from collections import defaultdict
 from uuid import uuid4
+
+import os
+
+import google_auth_oauthlib.flow
+import googleapiclient.discovery
+import googleapiclient.errors
 
 from articles import Article
 
@@ -21,11 +28,21 @@ class FeedlyApiClient:
 
     SINGLE_REQUEST_ITEM_SIZE = 20
 
-    def __init__(self, client_id, api_key):
+    # YOUTUBE STUFF
+
+    # Disable OAuthlib's HTTPS verification when running locally.
+    # *DO NOT* leave this option enabled in production.
+    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
+    API_SERVICE_NAME = "youtube"
+    API_VERSION = "v3"
+    SCOPES = ["https://www.googleapis.com/auth/youtube.force-ssl"]
+
+    def __init__(self, client_id, api_key, secrets_file_loc):
         self.client_id = client_id
         self.api_key = api_key
         self.unread_article_count = 0
         self.article_map = defaultdict(str)
+        self.secrets_file = secrets_file_loc
 
     def get_url_response_content(self, url):
         headers = {
@@ -117,3 +134,30 @@ class FeedlyApiClient:
 
         return list(all_youtube_links)
 
+    def add_video_to_playlist(self, video_id: str):
+         # Get credentials and create an API client
+        flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
+            self.secrets_file, 
+            self.SCOPES
+        )
+        credentials = flow.run_console()
+        youtube = googleapiclient.discovery.build(
+            self.API_SERVICE_NAME, 
+            self.API_VERSION, 
+            credentials=credentials
+        )
+        request = youtube.playlistItems().insert(
+            part="snippet",
+            body={
+            "snippet": {
+                "playlistId": "PLx0ErPjtWhPuMEgM3R9anuaO-gBYw4UK5",
+                "position": 0,
+                "resourceId": {
+                "kind": "youtube#video",
+                "videoId": video_id
+                }
+            }
+            }
+        )
+        response = request.execute()
+        return response
