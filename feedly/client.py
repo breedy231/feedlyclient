@@ -52,6 +52,7 @@ class FeedlyApiClient:
         response_content = json.loads(response.content)
         return response_content
 
+    # TODO fix infinite loop here when continuation is present
     def get_all_unread_articles(self, url=None, article_agg=[]):
         request_url = url if url is not None else self.PERSONAL_ALL_UNREAD_STREAM
         response_content = self.get_url_response_content(request_url)
@@ -72,7 +73,7 @@ class FeedlyApiClient:
             return result_agg
 
     def _make_continuation_url(self, continuation, url=None):
-        url_to_continue = self.PERSONAL_ALL_UNREAD_STEAM if url is None else url
+        url_to_continue = self.PERSONAL_ALL_UNREAD_STREAM if url is None else url
         continuation_url = url_to_continue + '&continuation=' + continuation 
         return continuation_url
 
@@ -119,6 +120,7 @@ class FeedlyApiClient:
                 result.append(article_obj)
         return result
 
+    # TODO fix key access when parsing through item for links
     def get_all_youtube_links(self):
         external_links = []
         all_youtube_links = set()

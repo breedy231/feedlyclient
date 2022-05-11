@@ -2,7 +2,7 @@ import httpx
 from bs4 import BeautifulSoup
 import re
 
-class NYTParser:
+class AVClubParser:
     def __init__(self, article_url):
         self.article_url = article_url
         self.article_text = ''
@@ -16,6 +16,7 @@ class NYTParser:
     def parse_video_links_from_html(self):
         soup = self.get_article_soup()
         video_links = []
+        video_ids = []
 
         # Regex for getting Youtube Video ids
         pattern = re.compile(r'([a-zA-Z0-9]{11})')
@@ -40,5 +41,7 @@ class NYTParser:
 
         for link in video_links:
             match = pattern.search(link)
-            print(match.group())
+            video_ids.append(match.group())
+    
+        return video_ids
         

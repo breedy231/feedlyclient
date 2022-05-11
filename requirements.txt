@@ -3,3 +3,6 @@ bs4
 beautifulsoup4
 feedparser
 tqdm
+google-api-python-client
+google-auth-oauthlib 
+google-auth-httplib2
