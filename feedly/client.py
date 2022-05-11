@@ -14,6 +14,9 @@ import googleapiclient.errors
 
 from articles import Article
 
+
+# TODO integrate article parsers 
+# TODO mark article as read in feedly after parsing video link & sending to Youtube
 class FeedlyApiClient:
     MAIN_URL = 'https://cloud.feedly.com'
 
