@@ -1,7 +1,7 @@
 from sys import api_version
 import httpx
 import json
-import tqdm
+from tqdm import tqdm
 from bs4 import BeautifulSoup
 from collections import defaultdict
 from uuid import uuid4
@@ -55,19 +55,15 @@ class FeedlyApiClient:
         response_content = json.loads(response.content)
         return response_content
 
-    # TODO fix infinite loop here when continuation is present
     def get_all_unread_articles(self, url=None, article_agg=[]):
         request_url = url if url is not None else self.PERSONAL_ALL_UNREAD_STREAM
         response_content = self.get_url_response_content(request_url)
-        print('Got first unread batch') if len(article_agg) == 0 else print(f'Got next unread batch of size {len(article_agg)}')
         continuation = response_content.get('continuation', None)
         response_items = response_content['items']
         num_items = len(response_items)
         
         if num_items == self.SINGLE_REQUEST_ITEM_SIZE and continuation is not None:
-            print('Generating continuation batch')
             continuation_url = self._make_continuation_url(continuation, url)
-            print(f'Continuation url: {continuation_url}')
             new_agg = article_agg + response_items
             return self.get_all_unread_articles(url=continuation_url, article_agg=new_agg)
         else:
@@ -76,7 +72,7 @@ class FeedlyApiClient:
             return result_agg
 
     def _make_continuation_url(self, continuation, url=None):
-        url_to_continue = self.PERSONAL_ALL_UNREAD_STREAM if url is None else url
+        url_to_continue = self.PERSONAL_ALL_UNREAD_STREAM
         continuation_url = url_to_continue + '&continuation=' + continuation 
         return continuation_url
 
@@ -123,19 +119,20 @@ class FeedlyApiClient:
                 result.append(article_obj)
         return result
 
-    # TODO fix key access when parsing through item for links
     def get_all_youtube_links(self):
         external_links = []
         all_youtube_links = set()
 
         unread_articles = self.get_all_unread_articles()
-        all_links = [item['altername'][0]['href'] for item in unread_articles]
+        all_links = [item['alternate'][0]['href'] for item in unread_articles]
 
         for link in tqdm(all_links):
             response = httpx.get(link)
             soup = BeautifulSoup(response.content, 'html.parser')
             external_links = external_links + [link.get('href') for link in soup.find_all('a')]
-            all_youtube_links.add([video for video in external_links if video is not None and 'www.youtube.com/watch?v=' in link])
+            if len(external_links) > 0:
+                result_links = [video for video in external_links if video is not None and 'www.youtube.com/watch?v=' in video]
+                all_youtube_links.update(result_links)
 
         return list(all_youtube_links)
 
