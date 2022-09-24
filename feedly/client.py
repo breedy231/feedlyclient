@@ -1,4 +1,6 @@
+import re
 from sys import api_version
+from typing import List
 import httpx
 import json
 from tqdm import tqdm
@@ -13,6 +15,8 @@ import googleapiclient.discovery
 import googleapiclient.errors
 
 from articles import Article
+
+YOUTUBE_URL = 'https://www.youtube.com/watch?v='
 
 
 # TODO integrate article parsers 
@@ -120,21 +124,83 @@ class FeedlyApiClient:
         return result
 
     def get_all_youtube_links(self):
-        external_links = []
+        first_regex = re.compile('^.*([a-zA-z0-9]{11}).*$')
+        second_regex = re.compile('.*([a-zA-z0-9]{4}-[a-zA-z0-9]{6}).*')
+        third_regex = re.compile('.*\/([a-zA-z0-9]{11})\?.*')
+        verge_regex = re.compile('.*\/([a-zA-z0-9]{11}).*')
+        colossal_regex = re.compile('.*\/([a-zA-z0-9]{11})\/.*')
+        regexes = [first_regex, second_regex, third_regex]
         all_youtube_links = set()
 
         unread_articles = self.get_all_unread_articles()
         all_links = [item['alternate'][0]['href'] for item in unread_articles]
 
         for link in tqdm(all_links):
+            external_links = []
             response = httpx.get(link)
             soup = BeautifulSoup(response.content, 'html.parser')
             external_links = external_links + [link.get('href') for link in soup.find_all('a')]
+            
             if len(external_links) > 0:
-                result_links = [video for video in external_links if video is not None and 'www.youtube.com/watch?v=' in video]
+                result_links = [video for video in external_links if video is not None and self._link_has_video(video)]
                 all_youtube_links.update(result_links)
+            
+            other_links = [hyper.get('data-src') for hyper in soup.find_all('iframe')]   
+            if len(other_links) > 0:
+                videos = self._get_avclub_youtube_ids(other_links, regexes)
+                all_youtube_links.update(videos)
 
+            other_other_links = [hyper.get('src') for hyper in soup.find_all('iframe')]
+            if len(other_other_links) > 0:
+                videos = self._get_avclub_youtube_ids(other_other_links, regexes)
+                all_youtube_links.update(videos)
+
+            if 'verge' in link:
+                videos = self._get_verge_youtube_ids(soup, verge_regex)
+                all_youtube_links.update(videos)
+            
+            if 'colossal' in link:
+                videos = self._get_colossal_youtube_ids(soup, colossal_regex)
+        
         return list(all_youtube_links)
+
+    def _get_colossal_youtube_ids(self, soup:BeautifulSoup, regex: re.Pattern):
+        videos = []
+        divs = soup.find_all('div', _class='ytp-cued-thumbnail-overlay-image')
+        style_string = divs[0]['style']
+        is_match = regex.match(style_string)
+        if is_match:
+            watch_link = f"{YOUTUBE_URL}{is_match.groups()[0]}"
+            videos.append(watch_link)
+        return videos
+
+    def _get_verge_youtube_ids(self, soup:BeautifulSoup, regex: re.Pattern):
+        data_script = soup.find_all('script')[-1]
+        loaded_script = json.loads(data_script.text)
+        page_components = loaded_script['props']['pageProps']['hydration']['responses'][0]['data']['entity']['body']['components']
+        all_videos = []
+        for page_component in page_components:
+            if page_component['__typename'] == 'EntryBodyEmbed':
+                embed_html = page_component['embed']['embedHtml'] 
+                is_match = regex.match(embed_html)
+                if is_match:
+                    watch_link = f"{YOUTUBE_URL}{is_match.groups()[0]}"
+                    all_videos.append(watch_link)
+        return all_videos
+    
+    def _get_avclub_youtube_ids(self, links: List[str], strings_to_match: List[re.Pattern]) -> List[str]:
+        videos = []
+        filtered_links = [item for item in links if item is not None]
+        for link in filtered_links:
+            for string in strings_to_match:
+                is_match = string.match(link)
+                if is_match:
+                    watch_link = f"{YOUTUBE_URL}{is_match.groups()[0]}"
+                    videos.append(watch_link)
+        return videos
+    
+    def _link_has_video(self, url: str) -> bool:
+        return 'www.youtube.com/watch?v=' in url or 'vimeo' in url
 
     def add_video_to_playlist(self, video_id: str):
          # Get credentials and create an API client
