@@ -225,11 +225,17 @@ class FeedlyApiClient:
         data_script = soup.find_all('script')[-1]
         loaded_script = json.loads(data_script.text)
         # TODO fix key access here for sale articles
+        with open(os.getcwd() + '/outputs/verge_soup.html', 'w') as file:
+            # serialized_links = json.dumps(youtube_links)
+            file.write(str(soup.html))
+            print('Wrout soup to file')
         try:
+            lead_component = loaded_script['props']['pageProps']['hydration']['responses'][0]['data']['entity']['leadComponent']
             page_components = loaded_script['props']['pageProps']['hydration']['responses'][0]['data']['entity']['body']['components']
+            all_components = [lead_component] + page_components
             all_videos = []
-            for page_component in page_components:
-                if page_component['__typename'] == 'EntryBodyEmbed':
+            for page_component in all_components:
+                if page_component['__typename'] == 'EntryBodyEmbed' or  page_component['__typename'] == 'EntryLeadEmbed':
                     embed_html = page_component['embed']['embedHtml'] 
                     is_match = regex.match(embed_html)
                     if is_match:
@@ -237,7 +243,7 @@ class FeedlyApiClient:
                         all_videos.append(watch_link)
             return all_videos
         except KeyError:
-            return []
+            return all_videos
     
     def _get_avclub_youtube_ids(self, links: List[str], strings_to_match: List[re.Pattern]) -> List[str]:
         videos = []
