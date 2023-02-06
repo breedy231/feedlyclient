@@ -224,16 +224,11 @@ class FeedlyApiClient:
     def _get_verge_youtube_ids(self, soup:BeautifulSoup, regex: re.Pattern):
         data_script = soup.find_all('script')[-1]
         loaded_script = json.loads(data_script.text)
-        # TODO fix key access here for sale articles
-        with open(os.getcwd() + '/outputs/verge_soup.html', 'w') as file:
-            # serialized_links = json.dumps(youtube_links)
-            file.write(str(soup.html))
-            print('Wrout soup to file')
+        all_videos = []
         try:
             lead_component = loaded_script['props']['pageProps']['hydration']['responses'][0]['data']['entity']['leadComponent']
             page_components = loaded_script['props']['pageProps']['hydration']['responses'][0]['data']['entity']['body']['components']
             all_components = [lead_component] + page_components
-            all_videos = []
             for page_component in all_components:
                 if page_component['__typename'] == 'EntryBodyEmbed' or  page_component['__typename'] == 'EntryLeadEmbed':
                     embed_html = page_component['embed']['embedHtml'] 
