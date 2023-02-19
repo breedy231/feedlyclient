@@ -1,14 +1,10 @@
-from email.policy import default
 import re
-from sys import api_version
 from typing import List
-from unittest import result
 import httpx
 import json
 from tqdm import tqdm
 from bs4 import BeautifulSoup
 from collections import defaultdict
-from uuid import uuid4
 
 import os
 
@@ -16,7 +12,7 @@ import google_auth_oauthlib.flow
 import googleapiclient.discovery
 import googleapiclient.errors
 
-from articles import Article, article
+from articles import Article
 
 YOUTUBE_URL = 'https://www.youtube.com/watch?v='
 
@@ -33,6 +29,7 @@ class FeedlyApiClient:
     COLLECTIONS_URL = MAIN_URL + '/v3/collections'
     UNREAD_COUNTS_URL = MAIN_URL + '/v3/markers/counts'
     STREAM_CONTENTS_URL = MAIN_URL + '/v3/streams/contents?streamId='
+    MARKERS_URL = MAIN_URL + '/v3/markers'
 
     PERSONAL_ALL_UNREAD_FEED_ID = STREAM_CONTENTS_URL + 'user/ede62ec0-5773-49b1-bfe7-c2843e0f4dec/category/global.all'
     PERSONAL_ALL_UNREAD_STREAM = STREAM_CONTENTS_URL + 'user/ede62ec0-5773-49b1-bfe7-c2843e0f4dec/category/global.all&unreadOnly=true'
@@ -65,6 +62,16 @@ class FeedlyApiClient:
         response = httpx.get(url, headers=headers)
         response_content = json.loads(response.content)
         return response_content
+
+    def post_url_response_content(self, url, payload=None):
+        headers = {
+            'Authorization': 'OAuth %s' % (self.api_key)
+        }
+        if payload:
+            response = httpx.post(url, headers=headers, json=payload)
+        else:
+            response = httpx.post(url, headers=headers)
+        return response.status_code
 
     def get_all_unread_articles(self, url=None, article_agg=[]):
         request_url = url if url is not None else self.PERSONAL_ALL_UNREAD_STREAM
@@ -136,19 +143,22 @@ class FeedlyApiClient:
         second_regex = re.compile('.*([a-zA-z0-9]{4}-[a-zA-z0-9]{6}).*')
         third_regex = re.compile('.*\/([a-zA-z0-9]{11})\?.*')
         verge_regex = re.compile('.*\/([a-zA-z0-9]{11}).*')
-        colossal_regex = re.compile('.*\/([a-zA-z0-9]{11})\/.*')
-        regexes = [first_regex, first_again_regex, second_regex, third_regex]
+        avclub_embed_regex = re.compile('.*youtube-video-([a-zA-Z0-9]*-[a-zA-Z0-9]*)\&.*')
+        regexes = [first_regex, first_again_regex, second_regex, third_regex, avclub_embed_regex]
         all_youtube_links = set()
+        all_read_articles = []
 
         unread_articles = self.get_all_unread_articles()
 
         all_links = []
+        possible_read_articles = {}
         # TODO fix CPM querying (either in Feedly or with request)
         for article in unread_articles:      
             try:
                 main_article_link = article['alternate'][0]['href']
                 self.TITLES_TO_DUPLICATES['title'].update(main_article_link)
                 all_links.append(main_article_link)
+                possible_read_articles[main_article_link] = article['id']
             except KeyError:
                 continue
 
@@ -201,9 +211,10 @@ class FeedlyApiClient:
                 raise Exception(f'Bad YT Video links found for link {link}. {result_videos}')
             else:
                 all_youtube_links.update(result_videos)
+                all_read_articles.append(possible_read_articles[link])
                 self._add_new_videos_to_map(result_videos, link)
         
-        return list(all_youtube_links)
+        return list(all_youtube_links), list(all_read_articles)
 
     def _get_colossal_youtube_ids(self, soup:BeautifulSoup, regex: re.Pattern):
         videos = []
@@ -246,7 +257,7 @@ class FeedlyApiClient:
         for link in filtered_links:
             for string in strings_to_match:
                 is_match = string.match(link)
-                if is_match:
+                if is_match and 'ideo-' not in is_match.groups()[0]:
                     watch_link = f"{YOUTUBE_URL}{is_match.groups()[0]}"
                     videos.append(watch_link)
                     break
@@ -287,4 +298,16 @@ class FeedlyApiClient:
             }
         )
         response = request.execute()
+        return response
+    
+    def mark_articles_as_read(self, article_ids): 
+        request_url = self.MARKERS_URL
+        payload = {
+            "action": "markAsRead",
+            "type": "entries",
+            "entryIds": article_ids,
+        }
+        unread_request_url = self.MAIN_URL + '/v3/markers/counts'
+        current_unread_response = self.get_url_response_content(unread_request_url)
+        response = self.post_url_response_content(request_url, payload)
         return response
