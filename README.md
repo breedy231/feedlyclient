@@ -21,9 +21,10 @@ import os
 client_id = '[FEEDLY_CLIENT_ID]'
 api_key = '[FEEDLY_API_KEY]'
 secrets_file_loc = '[GOOGLE_SECRETS_FILE_LOCATION]'
+playlist_id = '[YOUTUBE_PLAYLIST_ID]'
 
 # Client initialization
-client = FeedlyApiClient(client_id, api_key, secrets_file_loc)
+client = FeedlyApiClient(client_id, api_key, secrets_file_loc, playlist_id)
 
 # Get videos & articles
 youtube_links, read_article_ids = client.get_all_youtube_links()
