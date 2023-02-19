@@ -19,8 +19,6 @@ YOUTUBE_URL = 'https://www.youtube.com/watch?v='
 YOUTUBE_URL = 'https://www.youtube.com/watch?v='
 
 
-# TODO integrate article parsers 
-# TODO mark article as read in feedly after parsing video link & sending to Youtube
 class FeedlyApiClient:
     MAIN_URL = 'https://cloud.feedly.com'
 
