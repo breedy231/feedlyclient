@@ -7,6 +7,7 @@ This is basic Feedly Client designed to get YouTube videos from unread articles.
 * `pylint` as a linter
 * `httpx` for requests
 * `BeautifulSoup` for HTML parsing
+* `tqdm` for loading spinners
 
 ## Examples
 

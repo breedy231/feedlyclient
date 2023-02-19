@@ -48,8 +48,20 @@ class FeedlyApiClient:
         self.article_map = defaultdict(str)
         self.secrets_file = secrets_file_loc
         self.playlist_id = playlist_id
+        self.api_headers = {
+            'Authorization': 'OAuth %s' % (self.api_key)
+        }
     
-    def global_stream(self, unread=Optional[bool]):
+    def global_stream(self, unread=Optional[bool]) -> str:
+        """
+        Get the global stream for the user. Optionally include flag to only get unread articles. 
+
+        Args: 
+            unread: Optional argument to only get unread articles in the stream URL. Defaults to None. 
+
+        Returns: 
+            The global stream URL for the user. 
+        """
         return STREAM_CONTENTS_URL + f'user/${self.client_id}/category/global.all' + ('&unreadOnly=true' if unread else '')
 
     def get_url_response_content(self, url: str) -> dict:
@@ -62,10 +74,7 @@ class FeedlyApiClient:
         Returns: 
             JSON-loaded response data. 
         """
-        headers = {
-            'Authorization': 'OAuth %s' % (self.api_key)
-        }
-        response = httpx.get(url, headers=headers)
+        response = httpx.get(url, headers=self.api_headers)
         response_content = json.loads(response.content)
         return response_content
 
@@ -80,10 +89,7 @@ class FeedlyApiClient:
         Returns: 
             The response status code. 
         """
-        headers = {
-            'Authorization': 'OAuth %s' % (self.api_key)
-        }
-        response = httpx.post(url, headers=headers, json=payload)
+        response = httpx.post(url, headers=self.api_headers, json=payload)
         return response.status_code
 
     def get_all_unread_articles(self, url=Optional[str], article_agg=[]):
@@ -123,8 +129,7 @@ class FeedlyApiClient:
             The full continuation URL to use in the response. 
         """
         url_to_continue = self.global_stream(unread=True)
-        continuation_url = url_to_continue + '&continuation=' + continuation 
-        return continuation_url
+        return url_to_continue + '&continuation=' + continuation 
 
     def get_all_youtube_links(self) -> Tuple[List[str], List[str]]:
         """
@@ -349,5 +354,5 @@ class FeedlyApiClient:
             "type": "entries",
             "entryIds": article_ids,
         }
-        response = self.post_url_response_content(request_url, payload)
-        return response
+        response_status = self.post_url_response_content(request_url, payload)
+        return response_status
