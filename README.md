@@ -1,6 +1,6 @@
 # Feedly Client
 
-This is basic Feedly Client designed to get YouTube videos from unread articles. It also can save the videos to a playlist on YouTube, and mark the source articles as read on Feedly. 
+This is basic Feedly Client designed to get YouTube videos from unread articles. It also can save the videos to a playlist on YouTube, and mark the source articles as read on Feedly.
 
 ## Using
 
@@ -41,4 +41,3 @@ response = client.mark_articles_as_read(read_article_ids)
 ## External Docs
 * [Feedly API Documentation](https://developers.feedly.com/)
 * [BeautifulSoup Documentation](https://www.crummy.com/software/BeautifulSoup/bs4/doc/index.html)
-

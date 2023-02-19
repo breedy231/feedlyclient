@@ -1,7 +1,7 @@
 """
-A Client for interacting with the FeedlyAPI. 
+A Client for interacting with the FeedlyAPI.
 
-Main class: 
+Main class:
     - FeedlyAPIClient
 """
 # pylint: disable=E1101
@@ -40,7 +40,7 @@ REGEXES = [re.compile(regex_string) for regex_string in REGEX_STRINGS]
 
 class BadYoutubeLink(Exception):
     """
-        Exception for a poorly formatted YouTube link, from a bad regex match. 
+        Exception for a poorly formatted YouTube link, from a bad regex match.
     """
 
 
@@ -59,17 +59,17 @@ class FeedlyApiClient:
 
     def __init__(self, client_id, api_key, secrets_file_loc, playlist_id):
         """
-        Initialize the Feedly Client. 
+        Initialize the Feedly Client.
 
-        Args: 
-            client_id: The user ID returned from Feedly. 
-            api_key: The API key returned from Feedly. 
+        Args:
+            client_id: The user ID returned from Feedly.
+            api_key: The API key returned from Feedly.
             secrets_file_location: The location on your machine of the secrets file
-                from the Google API console, for saving videos to YouTube. 
-            playlist_id: The playlist ID to save videos to. 
+                from the Google API console, for saving videos to YouTube.
+            playlist_id: The playlist ID to save videos to.
 
-        Returns: 
-            The initialized client. 
+        Returns:
+            The initialized client.
         """
         self.client_id = client_id
         self.api_key = api_key
@@ -83,14 +83,14 @@ class FeedlyApiClient:
 
     def global_stream(self, unread=Optional[bool]) -> str:
         """
-        Get the global stream for the user. Optionally include flag to only get unread articles. 
+        Get the global stream for the user. Optionally include flag to only get unread articles.
 
-        Args: 
-            unread: Optional argument to only get unread articles in the stream URL. 
-                Defaults to None. 
+        Args:
+            unread: Optional argument to only get unread articles in the stream URL.
+                Defaults to None.
 
-        Returns: 
-            The global stream URL for the user. 
+        Returns:
+            The global stream URL for the user.
         """
         return (
             STREAM_CONTENTS_URL + f'user/${self.client_id}/category/global.all'
@@ -99,13 +99,13 @@ class FeedlyApiClient:
 
     def get_url_response_content(self, url: str) -> dict:
         """
-        Make an authorized GET request to the input URL. 
+        Make an authorized GET request to the input URL.
 
-        Args: 
-            url: The input URL. 
+        Args:
+            url: The input URL.
 
-        Returns: 
-            JSON-loaded response data. 
+        Returns:
+            JSON-loaded response data.
         """
         response = httpx.get(url, headers=self.api_headers)
         response_content = json.loads(response.content)
@@ -113,31 +113,31 @@ class FeedlyApiClient:
 
     def post_url_response_content(self, url: str, payload=Optional[dict]) -> int:
         """
-        Make an authorized POST request to the input URL, with optional input data. 
+        Make an authorized POST request to the input URL, with optional input data.
 
-        Args: 
+        Args:
             url: The input URL.
-            payload: JSON data. Optional. 
+            payload: JSON data. Optional.
 
-        Returns: 
-            The response status code. 
+        Returns:
+            The response status code.
         """
         response = httpx.post(url, headers=self.api_headers, json=payload)
         return response.status_code
 
     def get_all_unread_articles(self, url=Optional[str], article_agg=Optional[List]):
         """
-        Gets all unread articles from Feedly for the authorized user. 
-        If there is a continuation in the initial response, recur until exhausted. 
+        Gets all unread articles from Feedly for the authorized user.
+        If there is a continuation in the initial response, recur until exhausted.
 
-        Args: 
-            url: The string to use in the request. Defaults to the user's personal unread stream. 
-            article_agg: The unread articles from the user's personal unread stream. 
-                Defaults to an empty list. 
+        Args:
+            url: The string to use in the request. Defaults to the user's personal unread stream.
+            article_agg: The unread articles from the user's personal unread stream.
+                Defaults to an empty list.
 
-        Returns: 
-            A list of article objects, for all of the unread articles in the user's 
-            personal unread steam. 
+        Returns:
+            A list of article objects, for all of the unread articles in the user's
+            personal unread steam.
         """
         request_url = url if url is not None else self.global_stream(
             unread=True
@@ -159,22 +159,22 @@ class FeedlyApiClient:
 
     def _make_continuation_url(self, continuation: str) -> str:
         """
-        Make the continuation URL for the Feedly API. 
+        Make the continuation URL for the Feedly API.
 
-        Args: 
-            continuation: The marker to use in the continuation url. 
+        Args:
+            continuation: The marker to use in the continuation url.
 
-        Returns: 
-            The full continuation URL to use in the response. 
+        Returns:
+            The full continuation URL to use in the response.
         """
         url_to_continue = self.global_stream(unread=True)
         return url_to_continue + '&continuation=' + continuation
 
     def get_links_and_unread_map(self) -> dict:
         """
-        Get the map of article URL to ID. 
+        Get the map of article URL to ID.
 
-        Returns: 
+        Returns:
             A dictionary of article URLs to article ID
         """
         article_url_to_id = {}
@@ -191,11 +191,11 @@ class FeedlyApiClient:
 
     def get_all_youtube_links(self) -> Tuple[List[str], List[str]]:
         """
-        Gets all YouTube links present in unread articles for the authorized client user. 
+        Gets all YouTube links present in unread articles for the authorized client user.
 
-        Returns: 
+        Returns:
             A tuple of lists of strings, the first containing Youtube links and the second
-            containing Feedly article IDs. 
+            containing Feedly article IDs.
         """
         result_youtube_links = set()
         all_read_articles = []
@@ -249,14 +249,14 @@ class FeedlyApiClient:
 
     def _get_verge_youtube_ids(self, soup: BeautifulSoup, regex: re.Pattern):
         """
-        Gets the YouTube video IDs from Verge links. 
+        Gets the YouTube video IDs from Verge links.
 
-        Args: 
-            links: A list of URLs to check. 
-            strings_to_match: A list of regexes to match against. 
+        Args:
+            links: A list of URLs to check.
+            strings_to_match: A list of regexes to match against.
 
-        Returns: 
-            A list of YouTube video links. 
+        Returns:
+            A list of YouTube video links.
         """
         data_script = soup.find_all('script')[-1]
         loaded_script = json.loads(data_script.text)
@@ -287,14 +287,14 @@ class FeedlyApiClient:
         strings_to_match: List[re.Pattern]
     ) -> List[str]:
         """
-        Gets the YouTube video IDs from AV Club links. 
+        Gets the YouTube video IDs from AV Club links.
 
-        Args: 
-            links: A list of URLs to check. 
-            strings_to_match: A list of regexes to match against. 
+        Args:
+            links: A list of URLs to check.
+            strings_to_match: A list of regexes to match against.
 
-        Returns: 
-            A list of YouTube video links. 
+        Returns:
+            A list of YouTube video links.
         """
         videos = []
         filtered_links = [
@@ -312,11 +312,11 @@ class FeedlyApiClient:
         """
         Determines if a given link contains a video, i.e. is hosted on YouTube or Vimeo.
 
-        Args: 
-            url: The URL to check. 
+        Args:
+            url: The URL to check.
 
-        Returns: 
-            True or False, whether or not the input URL is a video. 
+        Returns:
+            True or False, whether or not the input URL is a video.
         """
         return 'www.youtube.com/watch?v=' in url or 'vimeo' in url
 
@@ -324,7 +324,7 @@ class FeedlyApiClient:
         """
         Add input video to a playlist on YouTube
 
-        Args: 
+        Args:
             video_id: The video ID to add to the playlist
 
         Returns
@@ -361,11 +361,11 @@ class FeedlyApiClient:
         """
         Marks input articles as read for the authorized user
 
-        Args: 
-            article_ids: A list of article IDs. 
+        Args:
+            article_ids: A list of article IDs.
 
         Returns:
-            The response status code. 
+            The response status code.
         """
         request_url = MARKERS_URL
         payload = {
