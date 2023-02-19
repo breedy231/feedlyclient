@@ -1,5 +1,5 @@
 import re
-from typing import List
+from typing import List, Optional, Tuple
 import httpx
 import json
 from tqdm import tqdm
@@ -12,30 +12,21 @@ import google_auth_oauthlib.flow
 import googleapiclient.discovery
 import googleapiclient.errors
 
-from articles import Article
-
 YOUTUBE_URL = 'https://www.youtube.com/watch?v='
+MAIN_URL = 'https://cloud.feedly.com'
+PROFILE_URL = MAIN_URL + '/v3/profile'
+SUBSCRIPTIONS_URL = MAIN_URL + '/v3/subscriptions'
+COLLECTIONS_URL = MAIN_URL + '/v3/collections'
+UNREAD_COUNTS_URL = MAIN_URL + '/v3/markers/counts'
+STREAM_CONTENTS_URL = MAIN_URL + '/v3/streams/contents?streamId='
+MARKERS_URL = MAIN_URL + '/v3/markers'
 
-YOUTUBE_URL = 'https://www.youtube.com/watch?v='
-
+PERSONAL_ALL_UNREAD_FEED_ID = STREAM_CONTENTS_URL + 'user/ede62ec0-5773-49b1-bfe7-c2843e0f4dec/category/global.all'
+PERSONAL_ALL_UNREAD_STREAM = STREAM_CONTENTS_URL + 'user/ede62ec0-5773-49b1-bfe7-c2843e0f4dec/category/global.all&unreadOnly=true'
+SINGLE_REQUEST_ITEM_SIZE = 20
 
 class FeedlyApiClient:
-    MAIN_URL = 'https://cloud.feedly.com'
-
-    PROFILE_URL = MAIN_URL + '/v3/profile'
-    SUBSCRIPTIONS_URL = MAIN_URL + '/v3/subscriptions'
-    COLLECTIONS_URL = MAIN_URL + '/v3/collections'
-    UNREAD_COUNTS_URL = MAIN_URL + '/v3/markers/counts'
-    STREAM_CONTENTS_URL = MAIN_URL + '/v3/streams/contents?streamId='
-    MARKERS_URL = MAIN_URL + '/v3/markers'
-
-    PERSONAL_ALL_UNREAD_FEED_ID = STREAM_CONTENTS_URL + 'user/ede62ec0-5773-49b1-bfe7-c2843e0f4dec/category/global.all'
-    PERSONAL_ALL_UNREAD_STREAM = STREAM_CONTENTS_URL + 'user/ede62ec0-5773-49b1-bfe7-c2843e0f4dec/category/global.all&unreadOnly=true'
-
-    SINGLE_REQUEST_ITEM_SIZE = 20
-
     # YOUTUBE STUFF
-
     # Disable OAuthlib's HTTPS verification when running locally.
     # *DO NOT* leave this option enabled in production.
     os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
@@ -47,13 +38,33 @@ class FeedlyApiClient:
     TITLES_TO_DUPLICATES = defaultdict(set)
 
     def __init__(self, client_id, api_key, secrets_file_loc):
+        """
+        Initialize the Feedly Client. 
+
+        Args: 
+            client_id: The user ID returned from Feedly. 
+            api_key: The API key returned from Feedly. 
+            secrets_file_location: The location on your machine of the secrets file from the Google API console, for saving videos to YouTube. 
+        
+        Returns: 
+            The initialized client. 
+        """
         self.client_id = client_id
         self.api_key = api_key
         self.unread_article_count = 0
         self.article_map = defaultdict(str)
         self.secrets_file = secrets_file_loc
 
-    def get_url_response_content(self, url):
+    def get_url_response_content(self, url: str) -> dict:
+        """
+        Make an authorized GET request to the input URL. 
+
+        Args: 
+            url: The input URL. 
+
+        Returns: 
+            JSON-loaded response data. 
+        """
         headers = {
             'Authorization': 'OAuth %s' % (self.api_key)
         }
@@ -61,17 +72,34 @@ class FeedlyApiClient:
         response_content = json.loads(response.content)
         return response_content
 
-    def post_url_response_content(self, url, payload=None):
+    def post_url_response_content(self, url: str, payload=Optional[dict]) -> int:
+        """
+        Make an authorized POST request to the input URL, with optional input data. 
+
+        Args: 
+            url: The input URL.
+            payload: JSON data. Optional. 
+
+        Returns: 
+            The response status code. 
+        """
         headers = {
             'Authorization': 'OAuth %s' % (self.api_key)
         }
-        if payload:
-            response = httpx.post(url, headers=headers, json=payload)
-        else:
-            response = httpx.post(url, headers=headers)
+        response = httpx.post(url, headers=headers, json=payload)
         return response.status_code
 
-    def get_all_unread_articles(self, url=None, article_agg=[]):
+    def get_all_unread_articles(self, url=Optional[str], article_agg=[]):
+        """
+        Gets all unread articles from Feedly for the authorized user. If there is a continuation in the initial response, recur until exhausted. 
+
+        Args: 
+            url: The string to use in the request. Defaults to the user's personal unread stream. 
+            article_agg: The unread articles from the user's personal unread stream. Defaults to an empty list. 
+
+        Returns: 
+            A list of article objects, for all of the unread articles in the user's personal unread steam. 
+        """
         request_url = url if url is not None else self.PERSONAL_ALL_UNREAD_STREAM
         response_content = self.get_url_response_content(request_url)
         continuation = response_content.get('continuation', None)
@@ -87,55 +115,27 @@ class FeedlyApiClient:
             print(f'Finished getting unread articles; Total length:{len(result_agg)}')
             return result_agg
 
-    def _make_continuation_url(self, continuation, url=None):
+    def _make_continuation_url(self, continuation: str) -> str:
+        """
+        Make the continuation URL for the Feedly API. 
+
+        Args: 
+            continuation: The marker to use in the continuation url. 
+        
+        Returns: 
+            The full continuation URL to use in the response. 
+        """
         url_to_continue = self.PERSONAL_ALL_UNREAD_STREAM
         continuation_url = url_to_continue + '&continuation=' + continuation 
         return continuation_url
 
-    def set_unread_count(self, unread_count):
-        self.unread_article_count = unread_count
+    def get_all_youtube_links(self) -> Tuple[List[str], List[str]]:
+        """
+        Gets all YouTube links present in unread articles for the authorized client user. 
 
-    def get_all_unread_article_urls(self):
-        unread_articles = self.get_all_unread_articles()
-        self.set_unread_count(len(unread_articles))
-        urls = []
-        for unread_article in unread_articles:
-            article_url = unread_article['alternate'][0]['href']
-            feed_id = unread_article.get('id')
-            feed_content = unread_article.get('content', None)
-            article_obj = self.create_article_obj(article_url, feed_id, feed_content)
-            self.add_to_article_map(article_url, article_obj)
-            urls.append(article_url)
-        return urls
-
-    def add_to_article_map(self, article_url, article_obj):
-        self.article_map[article_url] = article_obj
-
-    def parse_feed_text(self, feed_content):
-        article_content = feed_content.get('content', None)
-        article_soup = BeautifulSoup(article_content, 'html.parser')
-        rough_article_text = article_soup.text
-        no_whitespace_text = rough_article_text.replace('\n', ' ')
-        split_text = no_whitespace_text.split()
-        joined_text = ' '.join(split_text)
-        return joined_text
-
-    def create_article_obj(self, url, feed_id, feed_content=None):
-        if feed_content is not None:
-            parsed_text = self.parse_feed_text(feed_content)
-            article_obj = Article(url, feed_id, article_text=parsed_text)
-        else:
-            article_obj = Article(url, feed_id)
-        return article_obj
-
-    def get_all_long_articles(self):
-        result = []
-        for article_obj in self.article_map.values():
-            if article_obj.reading_time >= 5:
-                result.append(article_obj)
-        return result
-
-    def get_all_youtube_links(self):
+        Returns: 
+            A tuple of lists of strings, the first containing Youtube links and the second containing Feedly article IDs. 
+        """
         first_regex = re.compile('^.*([a-zA-z0-9]{11}).*$')
         first_again_regex = re.compile('^.*([a-zA-Z0-9]{8}-[a-zA-Z0-9}]{2}).*$')
         second_regex = re.compile('.*([a-zA-z0-9]{4}-[a-zA-z0-9]{6}).*')
@@ -200,8 +200,6 @@ class FeedlyApiClient:
             result_videos.extend(item for item in first_links_videos)
             result_videos.extend(item for item in second_links_videos)
             result_videos.extend(item for item in third_links_videos)
-
-            bad_tag_manager_url = 'v=etagmanager'
             
             has_bad_yt_video = len([url for url in result_videos if 'v=ideo' in url]) > 0
 
@@ -215,6 +213,16 @@ class FeedlyApiClient:
         return list(all_youtube_links), list(all_read_articles)
 
     def _get_colossal_youtube_ids(self, soup:BeautifulSoup, regex: re.Pattern):
+        """
+        Gets the YouTube video IDs from Colossal links. 
+        
+        Args: 
+            links: A list of URLs to check. 
+            strings_to_match: A list of regexes to match against. 
+        
+        Returns: 
+            A list of youtube video links. 
+        """
         videos = []
         divs = soup.find_all('div', _class='ytp-cued-thumbnail-overlay-image')
         if divs:
@@ -231,6 +239,16 @@ class FeedlyApiClient:
         return videos
 
     def _get_verge_youtube_ids(self, soup:BeautifulSoup, regex: re.Pattern):
+        """
+        Gets the YouTube video IDs from Verge links. 
+        
+        Args: 
+            links: A list of URLs to check. 
+            strings_to_match: A list of regexes to match against. 
+        
+        Returns: 
+            A list of youtube video links. 
+        """
         data_script = soup.find_all('script')[-1]
         loaded_script = json.loads(data_script.text)
         all_videos = []
@@ -250,6 +268,16 @@ class FeedlyApiClient:
             return all_videos
     
     def _get_avclub_youtube_ids(self, links: List[str], strings_to_match: List[re.Pattern]) -> List[str]:
+        """
+        Gets the YouTube video IDs from AV Club links. 
+        
+        Args: 
+            links: A list of URLs to check. 
+            strings_to_match: A list of regexes to match against. 
+        
+        Returns: 
+            A list of youtube video links. 
+        """
         videos = []
         filtered_links = [item for item in links if item is not None and 'google' not in item]
         for link in filtered_links:
@@ -262,6 +290,15 @@ class FeedlyApiClient:
         return videos
     
     def _link_has_video(self, url: str) -> bool:
+        """
+        Determines if a given link contains a video, i.e. is hosted on YouTube or Vimeo.
+
+        Args: 
+            url: The URL to check. 
+        
+        Returns: 
+            True or False, whether or not the input URL is a video. 
+        """
         return 'www.youtube.com/watch?v=' in url or 'vimeo' in url
     
     # TODO fix
@@ -270,7 +307,17 @@ class FeedlyApiClient:
             self.VIDEOS_TO_URLS[video].update(article_link)
         return True
 
+    # TODO add playlist id as input
     def add_video_to_playlist(self, video_id: str):
+        """
+        Add input video to a playlist on YouTube
+
+        Args: 
+            video_id: The video ID to add to the playlist
+        
+        Returns
+            The API response.
+        """
          # Get credentials and create an API client
         flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
             self.secrets_file, 
@@ -285,27 +332,34 @@ class FeedlyApiClient:
         request = youtube.playlistItems().insert(
             part="snippet",
             body={
-            "snippet": {
-                "playlistId": "PLx0ErPjtWhPuMEgM3R9anuaO-gBYw4UK5",
-                "position": 0,
-                "resourceId": {
-                "kind": "youtube#video",
-                "videoId": video_id
+                "snippet": {
+                    "playlistId": "PLx0ErPjtWhPuMEgM3R9anuaO-gBYw4UK5",
+                    "position": 0,
+                    "resourceId": {
+                    "kind": "youtube#video",
+                    "videoId": video_id
+                    }
                 }
-            }
             }
         )
         response = request.execute()
         return response
     
-    def mark_articles_as_read(self, article_ids): 
+    def mark_articles_as_read(self, article_ids: List[str]) -> int:
+        """
+        Marks input articles as read for the authorized user
+
+        Args: 
+            article_ids: A list of article IDs. 
+
+        Returns:
+            The response status code. 
+        """ 
         request_url = self.MARKERS_URL
         payload = {
             "action": "markAsRead",
             "type": "entries",
             "entryIds": article_ids,
         }
-        unread_request_url = self.MAIN_URL + '/v3/markers/counts'
-        current_unread_response = self.get_url_response_content(unread_request_url)
         response = self.post_url_response_content(request_url, payload)
         return response
