@@ -14,15 +14,8 @@ import googleapiclient.errors
 
 YOUTUBE_URL = 'https://www.youtube.com/watch?v='
 MAIN_URL = 'https://cloud.feedly.com'
-PROFILE_URL = MAIN_URL + '/v3/profile'
-SUBSCRIPTIONS_URL = MAIN_URL + '/v3/subscriptions'
-COLLECTIONS_URL = MAIN_URL + '/v3/collections'
-UNREAD_COUNTS_URL = MAIN_URL + '/v3/markers/counts'
 STREAM_CONTENTS_URL = MAIN_URL + '/v3/streams/contents?streamId='
 MARKERS_URL = MAIN_URL + '/v3/markers'
-
-PERSONAL_ALL_UNREAD_FEED_ID = STREAM_CONTENTS_URL + 'user/ede62ec0-5773-49b1-bfe7-c2843e0f4dec/category/global.all'
-PERSONAL_ALL_UNREAD_STREAM = STREAM_CONTENTS_URL + 'user/ede62ec0-5773-49b1-bfe7-c2843e0f4dec/category/global.all&unreadOnly=true'
 SINGLE_REQUEST_ITEM_SIZE = 20
 
 class FeedlyApiClient:
@@ -33,11 +26,10 @@ class FeedlyApiClient:
     API_SERVICE_NAME = "youtube"
     API_VERSION = "v3"
     SCOPES = ["https://www.googleapis.com/auth/youtube.force-ssl"]
-
     VIDEOS_TO_URLS = defaultdict(set)
     TITLES_TO_DUPLICATES = defaultdict(set)
 
-    def __init__(self, client_id, api_key, secrets_file_loc):
+    def __init__(self, client_id, api_key, secrets_file_loc, playlist_id):
         """
         Initialize the Feedly Client. 
 
@@ -45,7 +37,8 @@ class FeedlyApiClient:
             client_id: The user ID returned from Feedly. 
             api_key: The API key returned from Feedly. 
             secrets_file_location: The location on your machine of the secrets file from the Google API console, for saving videos to YouTube. 
-        
+            playlist_id: The playlist ID to save videos to. 
+
         Returns: 
             The initialized client. 
         """
@@ -54,6 +47,10 @@ class FeedlyApiClient:
         self.unread_article_count = 0
         self.article_map = defaultdict(str)
         self.secrets_file = secrets_file_loc
+        self.playlist_id = playlist_id
+    
+    def global_stream(self, unread=Optional[bool]):
+        return STREAM_CONTENTS_URL + f'user/${self.client_id}/category/global.all' + ('&unreadOnly=true' if unread else '')
 
     def get_url_response_content(self, url: str) -> dict:
         """
@@ -100,13 +97,13 @@ class FeedlyApiClient:
         Returns: 
             A list of article objects, for all of the unread articles in the user's personal unread steam. 
         """
-        request_url = url if url is not None else self.PERSONAL_ALL_UNREAD_STREAM
+        request_url = url if url is not None else self.global_stream(unread=True)
         response_content = self.get_url_response_content(request_url)
         continuation = response_content.get('continuation', None)
         response_items = response_content['items']
         num_items = len(response_items)
         
-        if num_items == self.SINGLE_REQUEST_ITEM_SIZE and continuation is not None:
+        if num_items == SINGLE_REQUEST_ITEM_SIZE and continuation is not None:
             continuation_url = self._make_continuation_url(continuation, url)
             new_agg = article_agg + response_items
             return self.get_all_unread_articles(url=continuation_url, article_agg=new_agg)
@@ -125,7 +122,7 @@ class FeedlyApiClient:
         Returns: 
             The full continuation URL to use in the response. 
         """
-        url_to_continue = self.PERSONAL_ALL_UNREAD_STREAM
+        url_to_continue = self.global_stream(unread=True)
         continuation_url = url_to_continue + '&continuation=' + continuation 
         return continuation_url
 
@@ -150,7 +147,6 @@ class FeedlyApiClient:
 
         all_links = []
         possible_read_articles = {}
-        # TODO fix CPM querying (either in Feedly or with request)
         for article in unread_articles:      
             try:
                 main_article_link = article['alternate'][0]['href']
@@ -208,11 +204,10 @@ class FeedlyApiClient:
             else:
                 all_youtube_links.update(result_videos)
                 all_read_articles.append(possible_read_articles[link])
-                self._add_new_videos_to_map(result_videos, link)
         
         return list(all_youtube_links), list(all_read_articles)
 
-    def _get_colossal_youtube_ids(self, soup:BeautifulSoup, regex: re.Pattern):
+    def _get_colossal_youtube_ids(self, soup:BeautifulSoup, regex: re.Pattern) -> List[str]:
         """
         Gets the YouTube video IDs from Colossal links. 
         
@@ -221,7 +216,7 @@ class FeedlyApiClient:
             strings_to_match: A list of regexes to match against. 
         
         Returns: 
-            A list of youtube video links. 
+            A list of YouTube video links. 
         """
         videos = []
         divs = soup.find_all('div', _class='ytp-cued-thumbnail-overlay-image')
@@ -247,7 +242,7 @@ class FeedlyApiClient:
             strings_to_match: A list of regexes to match against. 
         
         Returns: 
-            A list of youtube video links. 
+            A list of YouTube video links. 
         """
         data_script = soup.find_all('script')[-1]
         loaded_script = json.loads(data_script.text)
@@ -276,7 +271,7 @@ class FeedlyApiClient:
             strings_to_match: A list of regexes to match against. 
         
         Returns: 
-            A list of youtube video links. 
+            A list of YouTube video links. 
         """
         videos = []
         filtered_links = [item for item in links if item is not None and 'google' not in item]
@@ -300,14 +295,7 @@ class FeedlyApiClient:
             True or False, whether or not the input URL is a video. 
         """
         return 'www.youtube.com/watch?v=' in url or 'vimeo' in url
-    
-    # TODO fix
-    def _add_new_videos_to_map(self, video_list: List[str], article_link: str):
-        for video in video_list:
-            self.VIDEOS_TO_URLS[video].update(article_link)
-        return True
 
-    # TODO add playlist id as input
     def add_video_to_playlist(self, video_id: str):
         """
         Add input video to a playlist on YouTube
@@ -333,7 +321,7 @@ class FeedlyApiClient:
             part="snippet",
             body={
                 "snippet": {
-                    "playlistId": "PLx0ErPjtWhPuMEgM3R9anuaO-gBYw4UK5",
+                    "playlistId": self.playlist_id,
                     "position": 0,
                     "resourceId": {
                     "kind": "youtube#video",
@@ -355,7 +343,7 @@ class FeedlyApiClient:
         Returns:
             The response status code. 
         """ 
-        request_url = self.MARKERS_URL
+        request_url = MARKERS_URL
         payload = {
             "action": "markAsRead",
             "type": "entries",
