@@ -81,7 +81,7 @@ class FeedlyApiClient:
             'Authorization': f'OAuth {self.api_key}'
         }
 
-    def global_stream(self, unread=Optional[bool]) -> str:
+    def global_stream(self, unread: Optional[bool]) -> str:
         """
         Get the global stream for the user. Optionally include flag to only get unread articles.
 
@@ -93,7 +93,7 @@ class FeedlyApiClient:
             The global stream URL for the user.
         """
         return (
-            STREAM_CONTENTS_URL + f'user/${self.client_id}/category/global.all'
+            STREAM_CONTENTS_URL + f'user/{self.client_id}/category/global.all'
             + ('&unreadOnly=true' if unread else '')
         )
 
@@ -125,7 +125,7 @@ class FeedlyApiClient:
         response = httpx.post(url, headers=self.api_headers, json=payload)
         return response.status_code
 
-    def get_all_unread_articles(self, url=Optional[str], article_agg=Optional[List]):
+    def get_all_unread_articles(self, url: Optional[str], article_agg: Optional[List]):
         """
         Gets all unread articles from Feedly for the authorized user.
         If there is a continuation in the initial response, recur until exhausted.
@@ -178,7 +178,7 @@ class FeedlyApiClient:
             A dictionary of article URLs to article ID
         """
         article_url_to_id = {}
-        unread_articles = self.get_all_unread_articles()
+        unread_articles = self.get_all_unread_articles(url=None, article_agg=[])
 
         for article in unread_articles:
             try:
@@ -319,8 +319,16 @@ class FeedlyApiClient:
             True or False, whether or not the input URL is a video.
         """
         return 'www.youtube.com/watch?v=' in url or 'vimeo' in url
+    
+    def youtube_response_callback(self, request_id, response, exception):
+        if exception is not None:
+            # Do something with the exception
+            print(f'Exception: {exception} for request: {request_id}')
+        else:
+            # Do something with the response
+            print(f'Successfully added video for {request_id}')
 
-    def add_video_to_playlist(self, video_id: str):
+    def add_video_to_playlist(self, video_ids: List[str]):
         """
         Add input video to a playlist on YouTube
 
@@ -341,21 +349,43 @@ class FeedlyApiClient:
             self.API_VERSION,
             credentials=credentials
         )
-        request = youtube.playlistItems().insert(
-            part="snippet",
-            body={
-                "snippet": {
-                    "playlistId": self.playlist_id,
-                    "position": 0,
-                    "resourceId": {
-                        "kind": "youtube#video",
-                        "videoId": video_id
+
+        batch = youtube.new_batch_http_request(callback=self.youtube_response_callback)
+        for video_id in video_ids:
+            print(f'Sending video ID: {video_id} to playlist ID: {self.playlist_id}')
+            batch.add(
+                youtube.playlistItems().insert(
+                    part="snippet",
+                    body={
+                        "snippet": {
+                            "playlistId": self.playlist_id, #an actual playlistid
+                            "position": 0,
+                            "resourceId": {
+                                "kind": "youtube#video",
+                                "videoId": video_id
+                            }
+                        }
                     }
-                }
-            }
-        )
-        response = request.execute()
-        return response
+                )
+            )
+        responses = batch.execute()
+
+
+        # request = youtube.playlistItems().insert(
+        #     part="snippet",
+        #     body={
+        #         "snippet": {
+        #             "playlistId": self.playlist_id,
+        #             "position": 0,
+        #             "resourceId": {
+        #                 "kind": "youtube#video",
+        #                 "videoId": video_id
+        #             }
+        #         }
+        #     }
+        # )
+        # response = request.execute()
+        return responses
 
     def mark_articles_as_read(self, article_ids: List[str]) -> int:
         """
